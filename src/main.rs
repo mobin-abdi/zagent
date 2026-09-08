@@ -14,7 +14,7 @@ use llm::client::LlmClient;
 
 use tools::{
     calculator::Calculator, file_read::FileRead, file_write::FileWrite,
-    list_directory::ListDirectory, registry::ToolRegistry,
+    list_directory::ListDirectory, registry::ToolRegistry, shell::Shell,
 };
 
 #[tokio::main]
@@ -31,6 +31,7 @@ async fn main() -> anyhow::Result<()> {
     tools.register(FileRead);
     tools.register(ListDirectory);
     tools.register(FileWrite);
+    tools.register(Shell);
 
     let mut agent = Agent::new(tools, llm);
 
