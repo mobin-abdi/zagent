@@ -5,8 +5,6 @@ on:
     branches:
       - main
       - master
-    tags:
-      - "v*"
   pull_request:
 
 permissions:
@@ -38,39 +36,15 @@ jobs:
       - name: Build
         run: cargo build --release
 
-
-  release:
-    name: Build Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install packaging tools
+      - name: Prepare release
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            dpkg-dev \
-            fakeroot \
-            libfuse2
+          mkdir -p release
 
-      - name: Build Linux binary
-        run: cargo build --release
+          cp target/release/zagent \
+            release/zagent-linux-x86_64
 
-      # -------------------------
-      # DEB
-      # -------------------------
-
-      - name: Build DEB package
+      - name: Build DEB
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-
           mkdir -p deb/DEBIAN
           mkdir -p deb/usr/bin
 
@@ -78,7 +52,7 @@ jobs:
 
           cat > deb/DEBIAN/control <<EOF
           Package: zagent
-          Version: ${VERSION}
+          Version: 0.1.0
           Section: utils
           Priority: optional
           Architecture: amd64
@@ -87,13 +61,7 @@ jobs:
           EOF
 
           chmod 755 deb/usr/bin/zagent
-
-          dpkg-deb --build deb \
-            "zagent-linux-x86_64.deb"
-
-      # -------------------------
-      # APPIMAGE
-      # -------------------------
+          dpkg-deb --build deb release/zagent-linux-x86_64.deb
 
       - name: Build AppImage
         run: |
@@ -118,11 +86,7 @@ jobs:
           chmod +x appimagetool
 
           ./appimagetool AppDir \
-            zagent-linux-x86_64.AppImage
-
-      # -------------------------
-      # WINDOWS
-      # -------------------------
+            release/zagent-linux-x86_64.AppImage
 
       - name: Setup Windows target
         run: rustup target add x86_64-pc-windows-gnu
@@ -140,30 +104,22 @@ jobs:
 
           cp \
             target/x86_64-pc-windows-gnu/release/zagent.exe \
-            zagent-windows-x86_64.exe
-
-      # -------------------------
-      # CHECKSUMS
-      # -------------------------
+            release/zagent-windows-x86_64.exe
 
       - name: Generate checksums
         run: |
-          sha256sum \
-            zagent-linux-x86_64.deb \
-            zagent-linux-x86_64.AppImage \
-            zagent-windows-x86_64.exe \
-            > SHA256SUMS
+          cd release
+          sha256sum * > SHA256SUMS
 
-      # -------------------------
-      # GITHUB RELEASE
-      # -------------------------
-
-      - name: Create GitHub Release
+      - name: Create/Update Latest Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          tag_name: latest
+          name: Latest Build
+          prerelease: true
+          make_latest: true
           files: |
-            zagent-linux-x86_64.deb
-            zagent-linux-x86_64.AppImage
-            zagent-windows-x86_64.exe
-            SHA256SUMS
+            release/zagent-linux-x86_64.deb
+            release/zagent-linux-x86_64.AppImage
+            release/zagent-windows-x86_64.exe
+            release/SHA256SUMS
