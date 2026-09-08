@@ -36,15 +36,46 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Prepare release
-        run: |
-          mkdir -p release
 
-          cp target/release/zagent \
-            release/zagent-linux-x86_64
+  release:
+    name: Build Release
+    needs: check
+    runs-on: ubuntu-latest
 
-      - name: Build DEB
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # -------------------------
+      # Dependencies
+      # -------------------------
+
+      - name: Install Linux dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            dpkg-dev \
+            fakeroot \
+            mingw-w64 \
+            libfuse2
+
+      # -------------------------
+      # Linux
+      # -------------------------
+
+      - name: Build Linux binary
+        run: cargo build --release
+
+      # -------------------------
+      # DEB
+      # -------------------------
+
+      - name: Build DEB package
+        run: |
+          rm -rf deb
           mkdir -p deb/DEBIAN
           mkdir -p deb/usr/bin
 
@@ -61,14 +92,32 @@ jobs:
           EOF
 
           chmod 755 deb/usr/bin/zagent
-          dpkg-deb --build deb release/zagent-linux-x86_64.deb
+
+          dpkg-deb --build \
+            deb \
+            zagent-linux-x86_64.deb
+
+      # -------------------------
+      # APPIMAGE
+      # -------------------------
 
       - name: Build AppImage
         run: |
+          rm -rf AppDir
           mkdir -p AppDir/usr/bin
 
-          cp target/release/zagent AppDir/usr/bin/zagent
+          cp target/release/zagent \
+            AppDir/usr/bin/zagent
 
+          # AppRun
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          exec "$(dirname "$0")/usr/bin/zagent" "$@"
+          EOF
+
+          chmod +x AppDir/AppRun
+
+          # Desktop entry
           cat > AppDir/zagent.desktop <<'EOF'
           [Desktop Entry]
           Name=ZAgent
@@ -79,24 +128,26 @@ jobs:
           Categories=Development;
           EOF
 
+          # Download appimagetool
           wget -q \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
             -O appimagetool
 
           chmod +x appimagetool
 
-          ./appimagetool AppDir \
-            release/zagent-linux-x86_64.AppImage
+          ./appimagetool \
+            AppDir \
+            zagent-linux-x86_64.AppImage
+
+      # -------------------------
+      # WINDOWS
+      # -------------------------
 
       - name: Setup Windows target
-        run: rustup target add x86_64-pc-windows-gnu
-
-      - name: Install MinGW
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mingw-w64
+          rustup target add x86_64-pc-windows-gnu
 
-      - name: Build Windows
+      - name: Build Windows binary
         run: |
           cargo build \
             --release \
@@ -104,22 +155,34 @@ jobs:
 
           cp \
             target/x86_64-pc-windows-gnu/release/zagent.exe \
-            release/zagent-windows-x86_64.exe
+            zagent-windows-x86_64.exe
 
-      - name: Generate checksums
+      # -------------------------
+      # Checksums
+      # -------------------------
+
+      - name: Generate SHA256 checksums
         run: |
-          cd release
-          sha256sum * > SHA256SUMS
+          sha256sum \
+            zagent-linux-x86_64.deb \
+            zagent-linux-x86_64.AppImage \
+            zagent-windows-x86_64.exe \
+            > SHA256SUMS
 
-      - name: Create/Update Latest Release
+      # -------------------------
+      # GitHub Release
+      # -------------------------
+
+      - name: Create or Update Latest Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest Build
           prerelease: true
           make_latest: true
+          generate_release_notes: false
           files: |
-            release/zagent-linux-x86_64.deb
-            release/zagent-linux-x86_64.AppImage
-            release/zagent-windows-x86_64.exe
-            release/SHA256SUMS
+            zagent-linux-x86_64.deb
+            zagent-linux-x86_64.AppImage
+            zagent-windows-x86_64.exe
+            SHA256SUMS
