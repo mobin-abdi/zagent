@@ -128,7 +128,6 @@ jobs:
         run: |
           sha256sum \
             zagent-linux-x86_64.deb \
-            zagent-linux-x86_64.AppImage \
             zagent-windows-x86_64.exe \
             > SHA256SUMS
 
@@ -146,6 +145,5 @@ jobs:
           generate_release_notes: false
           files: |
             zagent-linux-x86_64.deb
-            zagent-linux-x86_64.AppImage
             zagent-windows-x86_64.exe
             SHA256SUMS
