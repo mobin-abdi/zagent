@@ -101,43 +101,6 @@ jobs:
       # APPIMAGE
       # -------------------------
 
-      - name: Build AppImage
-        run: |
-          rm -rf AppDir
-          mkdir -p AppDir/usr/bin
-
-          cp target/release/zagent \
-            AppDir/usr/bin/zagent
-
-          # AppRun
-          cat > AppDir/AppRun <<'EOF'
-          #!/bin/sh
-          exec "$(dirname "$0")/usr/bin/zagent" "$@"
-          EOF
-
-          chmod +x AppDir/AppRun
-
-          # Desktop entry
-          cat > AppDir/zagent.desktop <<'EOF'
-          [Desktop Entry]
-          Name=ZAgent
-          Comment=Lightweight AI agent written in Rust
-          Exec=zagent
-          Terminal=true
-          Type=Application
-          Categories=Development;
-          EOF
-
-          # Download appimagetool
-          wget -q \
-            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
-            -O appimagetool
-
-          chmod +x appimagetool
-
-          ./appimagetool \
-            AppDir \
-            zagent-linux-x86_64.AppImage
 
       # -------------------------
       # WINDOWS
